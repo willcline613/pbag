@@ -11,9 +11,15 @@ void disable_alarm() {
   
   //beeper oficially off
   digitalWrite(beeper_pin, HIGH);
+  //led off also
+  digitalWrite(led_pin, LOW);
+
+  //reset current loop to timer();
+  current_loop = "timer";
 }
 
 void serial_print_hit_data() {;
+  Serial.print('\n');
   Serial.println(F("Hit-data breakdown:"));
   Serial.print(F("hit count: "));
   Serial.println(hit_count);

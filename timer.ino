@@ -5,11 +5,13 @@ void timer() {
       //Serial.flush();
       //Serial.begin(9600);
       if (hit_count < 30) {
-        current_loop = "activate_alarm";
-        //reset auto disable alarm variable right at start of when current_loop begins
+        //reset auto disable alarm variable right before start of when current_loop begins
         auto_disable_alarm_prev = millis();
         //turn on beeper to be turned off later 
         digitalWrite(beeper_pin, LOW);
+        //turn on led pin to be turned off later
+        digitalWrite(led_pin, HIGH);
+        current_loop = "activate_alarm";
       }
    }
 }

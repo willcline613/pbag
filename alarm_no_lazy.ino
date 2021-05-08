@@ -13,10 +13,12 @@
 //cheating detector for games
 //improved app design or extra features
 
+//scrolling over current time on alarm time menu could prematurely activate alarm
+
 
 
 #include <DS3231.h>
-#include<Wire.h>
+#include<Wire.h> // https://dronebotworkshop.com electronic level with gy521
 #include <LiquidCrystal_I2C.h>
 #include <EEPROM.h>
 
@@ -27,7 +29,8 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 //set pin numbers
 //beeper_pin changed for now, so it's not beeping during testing
-int beeper_pin = 13;
+int beeper_pin = 12;
+int led_pin = 13;
 int mid_btn_pin = 2;
 int up_btn_pin = 5;
 int down_btn_pin = 4;
@@ -43,7 +46,7 @@ long update_time_and_timer_interval = 1100;
 const unsigned long activate_alarm_interval = 500;
 long debounce_interval = 200;    // the debounce time; increase if the output flickers
 long auto_return_to_mainscreen_interval = 15000;
-long auto_disable_alarm_interval = 30000;
+long auto_disable_alarm_interval = 300000;
 long serial_info_update_interval = 5000;
 long main_screen_update_interval = 60000;
 
@@ -87,9 +90,9 @@ int min_sec_threshold = 5;
 int16_t AcX, AcY, AcZ, Tmp, GyX, GyY, GyZ;
 const int MPU = 0x69;
 
-int x_multiplier = 100;
-int y_multiplier = 100;
-int z_multiplier = 100;
+int x_offset = 80;
+int y_offset = -1890;
+int z_offset = 6650;
 
 float roll;
 float pitch;
@@ -99,7 +102,7 @@ float accel_z;
 
 //declare activate_alarm variables
 int hit_count = 0;
-int max_hit_count = 30;
+int max_hit_count = 120;
 int big = 0;
 int med = 0;
 int small = 0;
@@ -143,8 +146,12 @@ void setup()
 
   //sets beeper pin to output
   pinMode(beeper_pin, OUTPUT);    // sets the digital pin 11 as output
+  //reset beeper to off at start of program in case it was on.
   digitalWrite(beeper_pin, HIGH);
   Serial.println(F("beeper pin set"));
+  //sets led pin to output
+  pinMode(led_pin, OUTPUT);
+  digitalWrite(led_pin, LOW);
 
 
   // initialize the pushbutton pins as an input:
@@ -155,6 +162,13 @@ void setup()
   
   //sets up accelerometer stuff ??
   Wire.begin();
+
+  //sequence of commands that awakens gy521 from sleep mode
+  Wire.beginTransmission(MPU);  
+  Wire.write(0x6B); // PWR_MGMT_1 register
+  Wire.write(0); // set to zero (wakes up the MPU-6050)
+  Wire.endTransmission(true);
+  
   Serial.println(F("wire begin function called"));
 }
 
@@ -229,6 +243,7 @@ void loop() {
  }
 
  if ( (millis() - auto_disable_alarm_prev >= auto_disable_alarm_interval) and (current_loop == "activate_alarm") ) {
+    Serial.println(F("Alarm auto disabled"));
     disable_alarm();
  }
 }

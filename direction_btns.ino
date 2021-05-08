@@ -14,7 +14,7 @@ void up_btn() {
       alarm_set_hour_screen();
     }
     else if (current_screen == "alarm_set_min_screen") {
-      if (alarm_min >= 60) {
+      if (alarm_min >= 59) {
         alarm_min = 0;
       }
       else {

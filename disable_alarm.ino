@@ -1,21 +1,15 @@
 void disable_alarm() {
-  //how do the beepers in this case translate to music? IDK
-  //would this small delay be problematic? Won't really need it when replace music anyways.
-  //turns on alarm for 5 seconds at end to indicate it has ended.
-  digitalWrite(beeper_pin, LOW);
-  delay(3500);
-  digitalWrite(beeper_pin, HIGH);
-
+  //stop currently playing mp3
+  send_command_to_MP3_player(pause, 4);
+  
   //print final hit breakdown/data
   serial_print_hit_data();
   
-  //beeper oficially off
-  digitalWrite(beeper_pin, HIGH);
-  //led off also
-  digitalWrite(led_pin, LOW);
-
   //reset current loop to timer();
   current_loop = "timer";
+
+  //call main screen function to reset to main screen
+  main_screen();
 }
 
 void serial_print_hit_data() {;
@@ -32,10 +26,16 @@ void serial_print_hit_data() {;
 }
 
 void reset_bag_hit_data() {
-  //Where do I want the reset? hit_count must't interfere with gating entree to this "current_loop"
   //could implement high score feature for big hits or within minigames that be saved to EEPROM
   hit_count = 0;
+  unweighted_hit_count = 0;
   big = 0;
   med = 0;
   small = 0;
+
+  hit_count_progress_bar_ammount = 0;
+
+  first_hit = 0;
+
+  
 }

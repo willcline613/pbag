@@ -22,6 +22,7 @@ void mid_btn() {
 
 void screen_toggle() {
   if (current_screen == "main_screen") {
+    //is changing current_screen variable here redundant since when the screen function is called, it changes that variable within the function?
     current_screen = "alarm_set_hour_screen";
     alarm_set_hour_screen();
 

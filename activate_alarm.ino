@@ -1,56 +1,59 @@
 void activate_alarm() {
+  update_mpu_6050_data();
   
   if (hit_count < max_hit_count){
-    update_accel_data();
-    serial_print_accel_data();
+    serial_print_mpu_6050_data();
     serial_print_hit_data();
   
     //Big hit:
-    if (accel_x>1700 or accel_x<-1800 or accel_y>1500 or accel_y<-2200) {
+    if ( (outputX < 1.3) or (outputY < -9.6) or (outputY > 9.6) ){
       big += 1;
-      //beep when big hit is triggered
-      digitalWrite(beeper_pin, LOW);
-      delay(500);
-      digitalWrite(beeper_pin, HIGH);
+      //play sound effect when big hit is triggered
+      //send_command_to_MP3_player(play_second_song, 6);
 
       /* extra feature for serial monitor to show which type of hit was triggered.
-      if ((accel_x>7.9 or accel_x<-11) and (accel_y>9.3  or accel_y<-9.3)) {
-        Serial.print(F("big accel_x and accel_y")); }
-      else if (accel_x>7.9 or accel_x<-11) {
-        Serial.print(F("big accel_x")); }
-      else if (accel_y>8 or accel_y<-8) {
-        Serial.print(F("big accel_y")); }
+      if ((angle_roll_output>7.9 or angle_roll_output<-11) and (angle_pitch_output>9.3  or angle_pitch_output<-9.3)) {
+        Serial.print(F("big angle_roll_output and angle_pitch_output")); }
+      else if (angle_roll_output>7.9 or angle_roll_output<-11) {
+        Serial.print(F("big angle_roll_output")); }
+      else if (angle_pitch_output>8 or angle_pitch_output<-8) {
+        Serial.print(F("big angle_pitch_output")); }
       */
     }        
     //Med hit:
-    else if (accel_x>1400 or accel_x<-1500 or accel_y>1200 or accel_y<-1900) {
+    else if ( (outputX < 2.5) or (outputY < -8) or (outputY > 8) ) {
       med += 1;
        /*
-      if (accel_x>5.5 or accel_x<-7.7) {
-        Serial.print(F("med accel_x")); }
-      else if (accel_y>7 or accel_y<-7) {
-        Serial.print(F("med accel_y")); }
+      if (angle_roll_output>5.5 or angle_roll_output<-7.7) {
+        Serial.print(F("med angle_roll_output")); }
+      else if (angle_pitch_output>7 or angle_pitch_output<-7) {
+        Serial.print(F("med angle_pitch_output")); }
     */
     }
     //Small hit
-    else if (accel_x>1250 or accel_x<-1350 or accel_y>1100 or accel_y<-1700) {
+    else if ( (outputX < 7.2) or (outputY < -6.5) or (outputY > 6.5) ) {
       small += 1;
         /*
-      if (accel_x>4 or accel_x<-6) {
-          Serial.print(F("small accel_x")); }
-      else if (accel_y>5 or accel_y<-5) {
-          Serial.print(F("small accel_y")); }
+      if (angle_roll_output>4 or angle_roll_output<-6) {
+          Serial.print(F("small angle_roll_output")); }
+      else if (angle_pitch_output>5 or angle_pitch_output<-5) {
+          Serial.print(F("small angle_pitch_output")); }
        */
     }
     else {
       Serial.println(F("Hits were below minimum on this iteration of the activate_alarm loop")); }
     
     hit_count = big*3 + med*2 + small;
+    unweighted_hit_count = big + med + small;
 
-    //turn off constant alarm sound once the bag is initially hit/triggered
-    if (hit_count > max_hit_count) {
-      Serial.println(F("first hit on bag"));
-        digitalWrite(beeper_pin, HIGH); }
+    if (unweighted_hit_count == 1) {
+      first_hit += 1;
+      if (first_hit == 1) {
+        Serial.println(F("first hit on bag"));
+        send_command_to_MP3_player(play_third_song, 6); 
+      }
+    }
+
         
   }
 

@@ -89,3 +89,40 @@ void alarm_set_mode_screen() {
   lcd.setCursor(6,1);
   lcd.print(alarm_mode_string);
 }
+
+void progress_bar_screen() {
+  current_screen = "progress_bar_screen";
+  
+  hit_count_progress_bar_ammount = ((14*hit_count) / max_hit_count);
+
+  //line 1 prints the current time by using hour and minute variables
+  lcd.setCursor(4, 0);
+  print_12hr_hour(current_hour);
+  lcd.print(F(":"));
+  //if statement to print leading zero if needed.
+  print_leading_zero(current_min);
+  lcd.print(current_min);
+  //space and then AM or PM
+  lcd.print(F(" "));
+  print_AM_or_PM(current_hour);
+
+  //line 2 prints the current iteration of the progress bar
+  //Serial.print("[");
+  lcd.setCursor(0, 1);
+  lcd.print("[");
+  for (int i = 0; i < hit_count_progress_bar_ammount; i++) {
+    //Serial.print("=");
+    //continually sets cursor one space further and prints a character there
+    lcd.setCursor(i+1,1);
+    lcd.print("=");
+  }
+  for (int i = 0; i < (14 - hit_count_progress_bar_ammount); i++) {
+    //Serial.print(".");
+    //continually sets cursor one space further and prints a character there
+    lcd.setCursor(i + 1 + hit_count_progress_bar_ammount,1);
+    lcd.print("."); 
+  }
+  //Serial.print("]");
+  lcd.setCursor(15, 1);
+  lcd.print("]");
+}

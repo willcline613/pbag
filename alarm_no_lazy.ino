@@ -21,19 +21,47 @@
 #include<Wire.h> // https://dronebotworkshop.com electronic level with gy521
 #include <LiquidCrystal_I2C.h>
 #include <EEPROM.h>
+#include <Arduino.h> //not sure what this one does
+#include <MPU6050.h> //https://github.com/m-rtijn/mpu6050-arduino/blob/master/MPU6050.cpp
+#include <SoftwareSerial.h>
 
+//--------------MP3 stuff----------------//
+// Define the RX and TX pins to establish UART communication with the MP3 Player Module.
+#define MP3_RX 5 // to TX
+#define MP3_TX 6 // to RX
+
+// Define the required MP3 Player Commands:
+
+// Select storage device to TF card
+static int8_t select_SD_card[] = {0x7e, 0x03, 0X35, 0x01, 0xef}; // 7E 03 35 01 EF
+// Play with index: /01/001xxx.mp3
+static int8_t play_first_song[] = {0x7e, 0x04, 0x41, 0x00, 0x01, 0xef}; // 7E 04 41 00 01 EF
+// Play with index: /01/002xxx.mp3
+static int8_t play_second_song[] = {0x7e, 0x04, 0x41, 0x00, 0x02, 0xef}; // 7E 04 41 00 02 EF
+// Play the song.
+static int8_t play_third_song[] = {0x7e, 0x04, 0x41, 0x00, 0x03, 0xef}; // 7E 04 41 00 02 EF
+// Play the song.
+static int8_t play[] = {0x7e, 0x02, 0x01, 0xef}; // 7E 02 01 EF
+// Pause the song.
+static int8_t pause[] = {0x7e, 0x02, 0x02, 0xef}; // 7E 02 02 EF
+//stop song
+static int8_t stop_song[] = {0x7E, 0x02, 0x0E, 0xEF};
+//set volume. on 2nd to last, 0F = 15 and 1E = 30
+static int8_t set_volume[] = {0x7E, 0x03, 0x31, 0x0F, 0xEF};
+
+// Define the Serial MP3 Player Module.
+SoftwareSerial MP3(MP3_RX, MP3_TX);
+//------------------------------------------------//
 
 
 // Set the LCD address to 0x27 for a 16 chars and 2 line display
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 //set pin numbers
-//beeper_pin changed for now, so it's not beeping during testing
-int beeper_pin = 12;
 int led_pin = 13;
-int mid_btn_pin = 2;
-int up_btn_pin = 5;
-int down_btn_pin = 4;
+int mid_btn_pin = 10;
+int up_btn_pin = 12;
+int down_btn_pin = 8;
 
 String direction_btn_polling;
 
@@ -49,6 +77,7 @@ long auto_return_to_mainscreen_interval = 15000;
 long auto_disable_alarm_interval = 300000;
 long serial_info_update_interval = 5000;
 long main_screen_update_interval = 60000;
+long progress_bar_update_interval = 4000;
 
 long update_time_and_timer_prev = 0;
 unsigned long activate_alarm_prev = 0;
@@ -59,6 +88,7 @@ long auto_return_to_mainscreen_prev = 0;
 long main_screen_update_prev = 0;
 long serial_info_update_prev = 0;
 long auto_disable_alarm_prev = 0;
+long progress_bar_update_prev = 0;
 
 
 //declare other rtc variables
@@ -86,26 +116,25 @@ String alarm_mode_string;
 //ammount of seconds into the alarm minute until activate alarm is no longer triggered.
 int min_sec_threshold = 5;
 
-//declare gy521 variables
-int16_t AcX, AcY, AcZ, Tmp, GyX, GyY, GyZ;
-const int MPU = 0x69;
 
-int x_offset = 80;
-int y_offset = -1890;
-int z_offset = 6650;
+//declare gy521 variables::::::
+MPU6050 mpu6050(0x69);
+float outputX;
+float outputY;
+float outputZ;
 
-float roll;
-float pitch;
-float accel_x;
-float accel_y;
-float accel_z;
 
 //declare activate_alarm variables
 int hit_count = 0;
-int max_hit_count = 120;
+int unweighted_hit_count = 0;
+int max_hit_count = 45;
 int big = 0;
 int med = 0;
 int small = 0;
+//hit count progress bar out of 14
+int hit_count_progress_bar_ammount;
+//makes big med and small all equal the same value of one to determine when any hit at all has occured to do things after the first hit
+int first_hit = 0;
 
 void setup()
 {
@@ -144,12 +173,6 @@ void setup()
   main_screen();
   Serial.println(F("main lcd screen function called"));
 
-  //sets beeper pin to output
-  pinMode(beeper_pin, OUTPUT);    // sets the digital pin 11 as output
-  //reset beeper to off at start of program in case it was on.
-  digitalWrite(beeper_pin, HIGH);
-  Serial.println(F("beeper pin set"));
-  //sets led pin to output
   pinMode(led_pin, OUTPUT);
   digitalWrite(led_pin, LOW);
 
@@ -161,15 +184,15 @@ void setup()
   Serial.println(F("button pins initialized"));
   
   //sets up accelerometer stuff ??
-  Wire.begin();
-
-  //sequence of commands that awakens gy521 from sleep mode
-  Wire.beginTransmission(MPU);  
-  Wire.write(0x6B); // PWR_MGMT_1 register
-  Wire.write(0); // set to zero (wakes up the MPU-6050)
-  Wire.endTransmission(true);
-  
+  Wire.begin(); 
   Serial.println(F("wire begin function called"));
+
+  // Initiate the Serial MP3 Player Module.
+  MP3.begin(9600);
+  // Select the SD Card.
+  send_command_to_MP3_player(select_SD_card, 5);
+  //sets volume based on what is in the hex command
+  send_command_to_MP3_player(set_volume, 5);
 }
 
 void loop() {
@@ -226,8 +249,6 @@ void loop() {
     activate_alarm_prev = millis();
   }
 
-
-
  if ( (millis() - main_screen_update_prev >= main_screen_update_interval) and (current_sec == 0) and (current_screen == "main_screen") ) {
     main_screen();
     Serial.print('\n');
@@ -236,7 +257,8 @@ void loop() {
     main_screen_update_prev = millis();
  }
 
- if ( (millis() - auto_return_to_mainscreen_prev >= auto_return_to_mainscreen_interval) and (current_screen != "main_screen") ) {
+//dont call auto return to main screen if already on main screen or on progress bar screen
+ if ( (millis() - auto_return_to_mainscreen_prev >= auto_return_to_mainscreen_interval) and (current_screen != "main_screen") and (current_screen != "progress_bar_screen") ) {
     main_screen();
     Serial.println(F("Auto returned to mainscreen")); 
   
@@ -245,5 +267,10 @@ void loop() {
  if ( (millis() - auto_disable_alarm_prev >= auto_disable_alarm_interval) and (current_loop == "activate_alarm") ) {
     Serial.println(F("Alarm auto disabled"));
     disable_alarm();
+ }
+
+ //update progress bar screen during alarm activation
+ if ( (millis() - progress_bar_update_prev >= progress_bar_update_interval) and (current_screen == "progress_bar_screen") ) {
+    progress_bar_screen();
  }
 }
